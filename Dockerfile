@@ -26,7 +26,7 @@ RUN apt remove -y gcc g++
 ENV PATH="/app/.venv/bin:$PATH"
 RUN sh setup_fc.sh
 
-# Byte Compile FC
+#Byte Compile FC
 RUN uv run python -c "from fc import fractional_cover"
 #CMD ["uv", "run", "run.py"]
 

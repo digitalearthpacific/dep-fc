@@ -11,6 +11,7 @@ from dep_tools.namers import S3ItemPath
 
 # python list.py --years 2024 --version 0.0.1 --regions FJI
 
+
 def main(
     years: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
@@ -41,7 +42,6 @@ def main(
         }
         for tile, year in product(list(tiles), years)
     ]
-
 
     json.dump(tasks, sys.stdout)
 

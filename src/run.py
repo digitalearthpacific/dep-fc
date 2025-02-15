@@ -5,6 +5,7 @@ import boto3
 import odc.geo.xr  # noqa: F401
 import typer
 from dea_tools.dask import create_local_dask_cluster
+
 # from dask.distributed import Client
 from dep_tools.aws import write_stac_s3
 from dep_tools.grids import PACIFIC_GRID_30
@@ -25,14 +26,15 @@ import util
 # NRU uv run src/run.py --tile-id 50,41 --year 2024 --version 0.0.1
 # FJI_Coral_Coast uv run src/run.py --tile-id 84,63 --year 2024 --version 0.0.1
 
+
 # Main
 def main(
     tile_id: Annotated[str, typer.Option()],
     year: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
-    #coastal_buffer: Optional[float] = 0.002,  # 0.002 - 0.005
+    # coastal_buffer: Optional[float] = 0.002,  # 0.002 - 0.005
     cloud_cover: Optional[str] = "50",
-    cadence: Optional[str] = "3MS", #quarterly
+    cadence: Optional[str] = "3MS",  # quarterly
     output_bucket: Optional[str] = "dep-public-staging",
     dataset_id: str = "fc",
     base_product: str = "ls",
@@ -45,14 +47,14 @@ def main(
 
     # dask and aws
     client = create_local_dask_cluster(return_client=True)
-    
-    '''
+
+    """
     client = DaskClient(
         n_workers=workers,
         threads_per_worker=threads_per_worker,
         memory_limit=memory_limit,
     )
-    '''
+    """
     log.info(client)
 
     configure_s3_access(cloud_defaults=True, requester_pays=True)
@@ -64,27 +66,37 @@ def main(
 
     log.info(f"{tile_id} [{year}]")
 
-    #generate product
+    # generate product
     ds = util.get_s2_data(aoi, year, cloud_cover=cloud_cover)
 
     grouped = ds.resample(time=cadence)
-    ds_median = grouped.median('time') #median composite
-    geomedian = grouped.map(geomedian_with_mads) #geomedian
+    ds_median = grouped.median("time")  # median composite
+    geomedian = grouped.map(geomedian_with_mads)  # geomedian
 
     if platform.platform() == "Darwin":
         ds_median = ds_median.compute()
 
-    '''
+    """
     if platform.platform() == "Linux":
         ds_median = geomedian.compute()
-    '''
+    """
 
     index = 0
     for t in ds_median.time.to_numpy():
         ds_source = ds_median.isel(time=index).squeeze()
-        datetime = np.datetime_as_string(t, unit='D')
+        datetime = np.datetime_as_string(t, unit="D")
         dfc = fractional_cover.fractional_cover(ds_source)
-        publish(dfc, ds_source, base_product, dataset_id, log, output_bucket, tile_id, version, datetime)
+        publish(
+            dfc,
+            ds_source,
+            base_product,
+            dataset_id,
+            log,
+            output_bucket,
+            tile_id,
+            version,
+            datetime,
+        )
         index = index + 1
 
     # write locally
@@ -96,7 +108,17 @@ def main(
     client.close()
 
 
-def publish(ds, ds_source, base_product, dataset_id, log, output_bucket, tile_id, version, datetime):
+def publish(
+    ds,
+    ds_source,
+    base_product,
+    dataset_id,
+    log,
+    output_bucket,
+    tile_id,
+    version,
+    datetime,
+):
     aws_client = boto3.client("s3")
     # itempath
     itempath = S3ItemPath(

@@ -18,8 +18,11 @@ import dep_tools.grids as grid
 catalog = "https://earth-search.aws.element84.com/v1"
 landsat_collection = "landsat-c2-l2"
 
+
 def get_s2_data(
-    aoi: GeoDataFrame, year="2024", cloud_cover=50,
+    aoi: GeoDataFrame,
+    year="2024",
+    cloud_cover=50,
 ) -> Dataset:
 
     # bbox = rasterio.features.bounds(aoi)
@@ -36,7 +39,7 @@ def get_s2_data(
     )
 
     ls_items = searcher_ls.search(aoi)
-    
+
     print(f"LS Items : {len(ls_items)}")
 
     # Load STAC Items
@@ -47,9 +50,9 @@ def get_s2_data(
         bands=["green", "red", "nir08", "swir16", "swir22", "qa_pixel"],
         fail_on_error=False,
     )
-   
+
     ls_data = loader_ls.load(ls_items, aoi)
-   
+
     # Cloud Mask
     bitflags = 0b00011000
     cloud_mask = (ls_data.qa_pixel & bitflags) != 0
@@ -58,17 +61,17 @@ def get_s2_data(
     # Scale and Offset
     ds_ls = (ls_data.where(ls_data.red != 0) * 0.0000275 + -0.2).clip(0, 1)
 
-    #coastal clip
+    # coastal clip
     ds_ls = get_clipped(ds_ls)
 
     ds_ls = ds_ls.odc.reproject(3832)
 
     ds_ls = cleanup(ds_ls)
 
-    #add nodata
+    # add nodata
     for var in ds_ls.data_vars:
-        ds_ls[var].attrs['nodata'] = -9999
-   
+        ds_ls[var].attrs["nodata"] = -9999
+
     return ds_ls
 
 
@@ -83,7 +86,7 @@ def get_clipped(ds) -> GeoDataFrame:
 
 
 def cleanup(ds: Dataset) -> Dataset:
-    #ds = ds.drop_vars("qa_count_clear")
+    # ds = ds.drop_vars("qa_count_clear")
     ds = ds.rename_vars({"nir08": "nir"})
     ds = ds.rename_vars({"swir16": "swir1"})
     ds = ds.rename_vars({"swir22": "swir2"})
