@@ -2,7 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+uv.lock
+.DS_Store
+.idea/
+Dockerfile.private
+fc/
 # C extensions
 *.so
 

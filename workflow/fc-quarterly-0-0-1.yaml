@@ -1,0 +1,138 @@
+kind: Workflow
+metadata:
+  generateName: dep-intertidal-
+  namespace: argo
+spec:
+  entrypoint: workflow-entrypoint
+  serviceAccountName: public-bucket-writer
+  podGC:
+    strategy: OnWorkflowSuccess
+    deleteDelayDuration: 600s
+  parallelism: 50
+  podMetadata:
+    labels:
+      app: dep-intertidal
+    annotations:
+      karpenter.sh/do-not-disrupt: "true"
+  arguments:
+    parameters:
+      - name: version
+        value: "0.0.1" # The version of the data product being made
+      - name: image-name
+        value: "dep-fc" # The Docker image
+      - name: base-product
+        value: "ls"
+      - name: image-tag
+        value: "latest" # The Docker image and code version
+      - name: bucket
+        value: "dep-public-staging" # The bucket to store the data
+      - name: regions
+        value: "FJI" # Comma separated list "FJI,TON" or 'ALL'
+      - name: years
+        value: "2024" # One year "2022", or a period "2020-2021"
+    templates:
+      - name: workflow-entrypoint
+        retryStrategy:
+          limit: "3"
+          retryPolicy: "Always"
+        dag:
+          tasks:
+            - name: generate-ids
+              template: generate
+              arguments:
+                parameters:
+                  - name: regions
+                    value: "{{ workflow.parameters.regions }}"
+                  - name: years
+                    value: "{{ workflow.parameters.years }}"
+                  - name: version
+                    value: "{{ workflow.parameters.version }}"
+                  - name: bucket
+                    value: "{{ workflow.parameters.bucket }}"
+                  - name: base-product
+                    value: "{{ workflow.parameters.base-product }}"
+
+            - name: process-id
+              depends: generate-ids.Succeeded
+              template: process
+              arguments:
+                parameters:
+                  - name: tile-id
+                    value: "{{item.tile-id}}"
+                  - name: year
+                    value: "{{item.year}}"
+                  - name: version
+                    value: "{{ workflow.parameters.version }}"
+                  - name: base-product
+                    value: "{{ workflow.parameters.base-product }}"
+                  - name: bucket
+                    value: "{{ workflow.parameters.bucket }}"
+              withParam: "{{ tasks.generate-ids.outputs.result }}"
+
+      - name: generate
+        inputs:
+          parameters:
+            - name: regions
+            - name: years
+            - name: base-product
+            - name: version
+            - name: bucket
+
+        container:
+          image: "ghcr.io/digitalearthpacific/{{ workflow.parameters.image-name }}:{{ workflow.parameters.image-tag }}"
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: 100Mi
+              cpu: 1.0
+          command: [ "uv", "run" ]
+          args:
+            - list.py
+            - --regions
+            - "{{ inputs.parameters.regions }}"
+            - --years
+            - "{{ inputs.parameters.years }}"
+            - --base-product
+            - "{{ inputs.parameters.base-product }}"
+            - --version
+            - "{{ inputs.parameters.version }}"
+            - --output-bucket
+            - "{{ inputs.parameters.bucket }}"
+
+      - name: process
+        inputs:
+          parameters:
+            - name: tile-id
+            - name: year
+            - name: base-product
+            - name: version
+            - name: bucket
+        container:
+          image: "ghcr.io/digitalearthpacific/{{ workflow.parameters.image-name }}:{{ workflow.parameters.image-tag }}"
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: 320Gi
+              cpu: 42
+            limits:
+              cpu: 48
+              memory: 360Gi
+          command: [ "uv", "run" ]
+          args:
+            - run.py
+            - --tile-id
+            - "{{ inputs.parameters.tile-id }}"
+            - --year
+            - "{{ inputs.parameters.year }}"
+            - --base-product
+            - "{{ inputs.parameters.base-product }}"
+            - --version
+            - "{{ inputs.parameters.version }}"
+            - --output-bucket
+            - "{{ inputs.parameters.bucket }}"
+            - --memory-limit
+            - "128GB"
+            - --workers
+            - "4"
+            - --threads-per-worker
+            - "32"
