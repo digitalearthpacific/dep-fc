@@ -6,7 +6,7 @@ import odc.geo.xr  # noqa: F401
 import typer
 from dea_tools.dask import create_local_dask_cluster
 
-# from dask.distributed import Client
+from dask.distributed import Client
 from dep_tools.aws import write_stac_s3
 from dep_tools.grids import PACIFIC_GRID_30
 from dep_tools.namers import S3ItemPath
