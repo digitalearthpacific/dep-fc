@@ -18,10 +18,8 @@ from config import BUCKET, DATASET_ID, VERSION
 class FCProcessor(FractionalCover):
     def process(self, data):
         data = (
-            data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2")).assign_attrs(
-                dict(crs=data.odc.crs)
-            )
-            # computing because the dask version is worse on memory
+            data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
+            .assign_attrs(dict(crs=data.odc.crs))
             .compute()
         )
         return super().compute(data)
@@ -40,7 +38,7 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
             loader = OdcLoader(
                 dtype="uint16",
                 bands=["green", "red", "nir08", "swir16", "swir22"],
-                #                chunks=dict(band=5, time=1, x=1024, y=1024),
+                chunks=dict(band=5, time=1, x=1024, y=1024),
                 stac_cfg={
                     "landsat-c2l2-sr": {
                         "assets": {"*": {"nodata": 0}},
@@ -59,7 +57,6 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
             ).run()
 
         except Exception as e:
-            raise e
             log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to s3://{BUCKET}/{log_path}"

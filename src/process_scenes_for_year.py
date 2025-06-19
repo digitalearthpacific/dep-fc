@@ -64,19 +64,7 @@ def main(
         # Don't reraise, it just means there's no data
         return None
 
-    for item in items:
-        import tracemalloc
-
-        tracemalloc.start()
-        process_fc_scene(item, tile_id=id)
-        snapshot = tracemalloc.take_snapshot()
-        top_stats = snapshot.statistics("lineno")
-
-        print("################################ done with one")
-        for stat in top_stats[:2]:
-            print(stat)
-
-    #    paths = [process_fc_scene(item, tile_id=id) for item in items]
+    paths = [process_fc_scene(item, tile_id=id) for item in items]
 
     logger.info([id, "complete", paths])
 
