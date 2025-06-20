@@ -7,12 +7,13 @@ import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
 from dep_tools.grids import landsat_grid
 from dep_tools.namers import S3ItemPath
-from dep_tools.parsers import bool_parser#, datetime_parser
+from dep_tools.parsers import bool_parser  # , datetime_parser
 
 from grid import grid as dep_grid
 from config import BUCKET, VERSION
 
-def datetime_parser(datetime: str) -> list[int]:
+
+def datetime_parser(datetime: str) -> list[int] | list[str]:
     """Parse a string in the format <year> or <year 1>_<year 2>. If a
     single year, it is returned as a single item list. Otherwise a generator
     producing integer values in the range [year1, year2 + 1] is returned.
@@ -22,9 +23,8 @@ def datetime_parser(datetime: str) -> list[int]:
         years = list(range(int(years[0]), int(years[1]) + 1))
     elif len(years) > 2:
         ValueError(f"{datetime} is not a valid value for --datetime")
-    elif len(years) == 1:
-        years = [int(years)]
     return years
+
 
 def main(
     years: Annotated[int, typer.Option(parser=datetime_parser)],
@@ -32,7 +32,7 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    dataset_id: Optional[str] = "dep_fc_percentiles", # placeholder for now
+    dataset_id: Optional[str] = "dep_fc_percentiles",  # placeholder for now
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
 ) -> None:
     this_grid = dep_grid if grid == "dep" else landsat_grid()
