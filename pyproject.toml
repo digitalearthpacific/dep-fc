@@ -8,6 +8,7 @@ dependencies = [
     "cloud-logger",
     "datacube",
     "dep-tools",
+    "gdal == 3.10.3",
     "scikit-build",
     "typer",
 ]
