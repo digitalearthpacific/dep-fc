@@ -64,7 +64,7 @@ def main(
         # Don't reraise, it just means there's no data
         return None
 
-    paths = [process_fc_scene(item, tile_id=id) for item in items]
+    paths = [process_fc_scene(item, tile_id=id, version=version) for item in items]
 
     logger.info([id, "complete", paths])
 
