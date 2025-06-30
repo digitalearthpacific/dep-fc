@@ -28,7 +28,7 @@ WORKDIR /app
 
 #Install app dependencies
 RUN uv venv \
-&& uv sync -U --compile-bytecode
+&& uv sync --compile-bytecode
 
 #Compile FC Fortran
 RUN apt remove -y gcc g++
