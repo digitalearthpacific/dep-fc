@@ -13,7 +13,6 @@ from fc.virtualproduct import FractionalCover
 from pystac import Item
 
 from config import BUCKET, DATASET_ID, VERSION
-from processors import FractionalCoverScipy
 
 
 class FCProcessor(FractionalCover):
@@ -53,14 +52,13 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 id=tile_id,
                 item=item,
                 loader=loader,
-                processor=FractionalCoverScipy(),  # (c2_scaling=True),
+                processor=FCProcessor(c2_scaling=True),
                 writer=AwsDsCogWriter(itempath),
                 stac_creator=StacCreator(itempath),
                 stac_writer=AwsStacWriter(itempath),
             ).run()
 
         except Exception as e:
-            raise e
             log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to s3://{BUCKET}/{log_path}"
@@ -73,3 +71,4 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 key=str(log_path),
                 client=boto3_client,
             )
+            raise e
