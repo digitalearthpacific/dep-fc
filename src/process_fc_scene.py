@@ -3,6 +3,7 @@ import traceback
 import warnings
 
 import boto3
+from datacube.virtual import Measurement
 from dep_tools.aws import object_exists, s3_dump
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import DailyItemPath
@@ -16,15 +17,27 @@ from config import BUCKET, DATASET_ID, VERSION
 
 
 class FCProcessor(FractionalCover):
+    #    @property
+    #    def measurements(self):
+    #        # Only way to override hardcoded measurements in fc.virtualproduct
+    #        fc_measurements = [
+    #            {"name": "pv", "dtype": "uint8", "nodata": 255, "units": "percent"},
+    #            {"name": "npv", "dtype": "uint8", "nodata": 255, "units": "percent"},
+    #            {"name": "bs", "dtype": "uint8", "nodata": 255, "units": "percent"},
+    #            {"name": "ue", "dtype": "uint8", "nodata": 255, "units": ""},
+    #        ]
+    #        return [Measurement(**m) for m in fc_measurements]
+
     def process(self, data):
         data = (
             data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
             .assign_attrs(dict(crs=data.odc.crs))
             .compute()
         )
-        # Reset nodata here (it's -1 in fc.virtualproduct.MEASUREMENTS
-        # so we can save as unsigned int (and also match DE Africa data)
-        return super().compute(data).where(lambda d: d >= 0, 255).astype("uint8")
+
+        output = super().compute(data)
+        output.attrs["nodata"] = -1
+        return output
 
 
 def process_fc_scene(item: Item, tile_id, version=VERSION):
@@ -71,4 +84,4 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 key=str(log_path),
                 client=boto3_client,
             )
-            raise e
+            # raise e
