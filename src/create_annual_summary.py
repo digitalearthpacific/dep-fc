@@ -3,6 +3,7 @@ from typing_extensions import Annotated
 
 import boto3
 from distributed import Client
+import numpy as np
 from odc.stats.plugins.fc_percentiles import StatsFCP
 from typer import Option, run
 from xarray import Dataset, merge
@@ -29,25 +30,23 @@ class MultiCollectionLoader:
         for item in items:
             collections[item.collection_id].append(item)
 
-        # load items in each
-        output = []
-        for items_in_collection in collections.values():
-            loader = OdcLoader(**self._kwargs)
-            output.append(loader.load(items_in_collection, areas))
-        return merge(output, fill_value=255)
+        # load items in each and merge
+        return merge(
+            [
+                OdcLoader(**self._kwargs).load(items, areas)
+                for items in collections.values()
+            ],
+            fill_value=255,
+        )
 
 
 NODATA = 255
 
+from odc.algo import keep_good_only, mask_cleanup
 
-class FCPercentiles:
+
+class FCPercentiles(StatsFCP):
     send_area_to_processor = False
-    BAD_BITS_MASK = {"cloud": 1 << 6, "cloud_shadow": 1 << 5, "terrain_shadow": 1 << 3}
-    cloud_filters = {}
-    ue_threshold = None
-    max_sum_limit = None
-    clip_range = None
-    count_valid = None
 
     def native_transform(self, xx):
         """
@@ -59,15 +58,14 @@ class FCPercentiles:
         4. Calculate the clear wet pixels
         5. Drop the WOfS band
         """
-        from odc.algo import keep_good_only
 
         # not mask against bit 4: terrain high slope
         # Pick out the dry and wet pixels
-        valid = (xx["water"] & (1 << 4)) == 0
-        wet = (xx["water"] & (1 << 7)) == 128
-        breakpoint()
+        valid = (xx["water"] & ~np.uint8(1 << 4)) == 0
+        wet = (xx["water"] & ~np.uint8(1 << 7)) == 128
 
         # dilate both 'valid' and 'water'
+        breakpoint()
         for key, val in self.BAD_BITS_MASK.items():
             if self.cloud_filters.get(key) is not None:
                 raw_mask = (xx["water"] & val) > 0
@@ -91,7 +89,7 @@ class FCPercentiles:
             for band in xx.data_vars.keys():
                 attributes = xx[band].attrs
                 mask = xx[band] == NODATA
-                band_data = eep_good_only(xx[band], ~mask, nodata=0)
+                band_data = keep_good_only(xx[band], ~mask, nodata=0)
 
                 if self.max_sum_limit is not None:
                     sum_bands = sum_bands + band_data
@@ -112,11 +110,10 @@ class FCPercentiles:
 
         return xx
 
-    def process(self, fc: Dataset):
-        summarizer = StatsFCP()
-        prepped = fc.groupby("time").apply(lambda ds: self.native_transform(ds))
-        output = summarizer.fuser(prepped)
-        return summarizer.reduce(output)
+    def process(self, input_ds: Dataset):
+        transformed = self.native_transform(input_ds)
+        fused = transformed.groupby("time").apply(self.fuser)
+        return self.reduce(fused)
 
 
 def main(
@@ -146,7 +143,7 @@ def main(
 
     stacloader = MultiCollectionLoader(
         dtype="uint8",
-        chunks=dict(x=4096, y=4096),
+        chunks=dict(x=1600, y=1600),
         fail_on_error=False,
         #        stac_cfg=dict(
         #            dep_ls_fc=dict(assets=dict(bs={}, pv={},npv={}, ue={})),
@@ -154,7 +151,9 @@ def main(
         #            ),
     )
 
-    processor = FCPercentiles()
+    processor = FCPercentiles(
+        cloud_filters=dict(cloud=[("dilation", 6)], cloud_shadow=[("dilation", 6)]),
+    )
 
     post_processor = XrPostProcessor(
         convert_to_int16=False,

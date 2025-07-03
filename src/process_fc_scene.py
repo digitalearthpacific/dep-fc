@@ -13,7 +13,7 @@ from dep_tools.stac_utils import StacCreator
 from fc.virtualproduct import FractionalCover
 from pystac import Item
 
-from config import BUCKET, DATASET_ID, VERSION
+from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
 class FCProcessor(FractionalCover):
@@ -36,7 +36,22 @@ class FCProcessor(FractionalCover):
         )
 
         output = super().compute(data)
-        output.attrs["nodata"] = -1
+        NODATA = 255
+        # To convert from int8 with nodata = -1 to uint8 with nodata=255
+        # we have to do it this way. I tried to alter the "Measurements"
+        # var in the fc code but there are places where -1 is hardcoded
+        # so it's not respected entirely
+        # Converting to uint8
+        # 1. Makes it easier to load alongside WOfS when calculating percentiles
+        # 2. matches DE Africa data
+        for var in output:
+            output[var] = (
+                output[var]
+                .astype("int16")
+                .where(output[var] > 0, NODATA)
+                .astype("uint8")
+            )
+            output[var].attrs["nodata"] = NODATA
         return output
 
 
@@ -67,7 +82,12 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 loader=loader,
                 processor=FCProcessor(c2_scaling=True),
                 writer=AwsDsCogWriter(itempath),
-                stac_creator=StacCreator(itempath),
+                stac_creator=StacCreator(
+                    itempath,
+                    collection_url_root=OUTPUT_COLLECTION_ROOT,
+                    with_raster=True,
+                    with_eo=True,
+                ),
                 stac_writer=AwsStacWriter(itempath),
             ).run()
 
