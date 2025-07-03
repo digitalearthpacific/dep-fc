@@ -17,17 +17,6 @@ from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
 class FCProcessor(FractionalCover):
-    #    @property
-    #    def measurements(self):
-    #        # Only way to override hardcoded measurements in fc.virtualproduct
-    #        fc_measurements = [
-    #            {"name": "pv", "dtype": "uint8", "nodata": 255, "units": "percent"},
-    #            {"name": "npv", "dtype": "uint8", "nodata": 255, "units": "percent"},
-    #            {"name": "bs", "dtype": "uint8", "nodata": 255, "units": "percent"},
-    #            {"name": "ue", "dtype": "uint8", "nodata": 255, "units": ""},
-    #        ]
-    #        return [Measurement(**m) for m in fc_measurements]
-
     def process(self, data):
         data = (
             data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))

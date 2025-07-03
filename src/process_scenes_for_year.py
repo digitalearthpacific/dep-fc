@@ -23,7 +23,6 @@ def main(
     year: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
-    configure_s3_access(cloud_defaults=True, requester_pays=True)
     id = (path, row)
     cell = landsat_grid().loc[[id]]
 
@@ -64,7 +63,14 @@ def main(
         # Don't reraise, it just means there's no data
         return None
 
-    paths = [process_fc_scene(item, tile_id=id, version=version) for item in items]
+    def auth_and_process(*args, **kwargs):
+        # Read auth seems to expire after 1hr.
+        # Re-authenticate before each tile to get around this, as tasks
+        # for all scenes within a year take more than an hour
+        configure_s3_access(cloud_defaults=True, requester_pays=True)
+        process_fc_scene(*args, **kwargs)
+
+    paths = [auth_and_process(item, tile_id=id, version=version) for item in items]
 
     logger.info([id, "complete", paths])
 
