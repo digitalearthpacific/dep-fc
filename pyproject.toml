@@ -9,8 +9,9 @@ dependencies = [
     "datacube",
     "dep-tools",
     "gdal == 3.8.4",
-    "odc-algo",
-    "odc-stats",
+    "odc-algo>=1.0.1",
+    "odc-stats>=1.9.0",
+    "odc-geo>=0.5.0rc1",
     "scikit-build",
     "typer",
 ]
