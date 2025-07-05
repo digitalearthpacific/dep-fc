@@ -65,7 +65,6 @@ class FCPercentiles(StatsFCP):
         wet = (xx["water"] & ~np.uint8(1 << 7)) == 128
 
         # dilate both 'valid' and 'water'
-        breakpoint()
         for key, val in self.BAD_BITS_MASK.items():
             if self.cloud_filters.get(key) is not None:
                 raw_mask = (xx["water"] & val) > 0
