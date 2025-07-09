@@ -1,0 +1,118 @@
+kind: Workflow
+metadata:
+  generateName: fractional-cover-
+  namespace: argo
+spec:
+  entrypoint: loop-map
+  serviceAccountName: public-bucket-writer
+  podGC:
+    strategy: OnPodSuccess
+    deleteDelayDuration: 600s
+  parallelism: 500
+  nodeSelector:
+    karpenter.sh/capacity-type: "spot"
+  hostAliases:
+    - ip: "13.227.74.113"
+      hostnames:
+        - "landsatlook.usgs.gov"
+  arguments:
+    parameters:
+    - name: version
+      value: "0.0.2" 
+    - name: image-tag
+      value: "0.0.2dev15"
+  templates:
+  - name: loop-map
+    retryStrategy:
+      limit: "4"
+      retryPolicy: "Always"
+    dag:
+      tasks:
+        - name: generate-ids
+          template: generate
+          arguments:
+            parameters:
+              - name: limit
+                value: "9999"
+              - name: datetime
+                value: "2024"
+              - name: grid
+                value: "ls"
+              - name: version
+                value: "{{ workflow.parameters.version }}"
+              - name: datasetid
+                value: "fc"
+              - name: overwrite-existing-log
+                value: "False"
+        - name: process-id
+          depends: generate-ids.Succeeded
+          template: process-tile
+          arguments:
+            parameters:
+            - name: path
+              value: "{{item.path}}"
+            - name: row
+              value: "{{item.row}}"
+            - name: year
+              value: "{{item.year}}"
+            - name: version
+              value: "{{ workflow.parameters.version }}"
+          withParam: "{{ tasks.generate-ids.outputs.result }}"
+  - name: generate
+    inputs:
+      parameters:
+      - name: limit
+      - name: datetime
+      - name: version
+      - name: datasetid
+      - name: overwrite-existing-log
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-fc:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          memory: 100Mi
+          cpu: 1.0
+      command: [ "uv", "run" ]
+      args:
+        - list.py
+        - --years
+        - "{{ inputs.parameters.datetime }}"
+        - --version
+        - "{{ inputs.parameters.version }}"
+        - --limit
+        - "{{ inputs.parameters.limit }}"
+        - --grid
+        - "ls"
+        - --dataset-id
+        - "{{ inputs.parameters.datasetid }}"
+        - --overwrite-existing-log
+        - "{{ inputs.parameters.overwrite-existing-log }}"
+  - name: process-tile
+    inputs:
+      parameters:
+      - name: path
+      - name: row
+      - name: year
+      - name: version
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-fc:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          cpu: 2
+          memory: 8Gi
+        limits:
+          cpu: 2
+          memory: 8Gi
+      command: [ "uv", "run" ]
+      args:
+        - process_scenes_for_year.py
+        - --path
+        - "{{ inputs.parameters.path }}"
+        - --row
+        - "{{ inputs.parameters.row }}"
+        - --year
+        - "{{ inputs.parameters.year }}"
+        - --version
+        - "{{ inputs.parameters.version }}"

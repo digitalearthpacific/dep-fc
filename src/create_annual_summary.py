@@ -47,6 +47,7 @@ from odc.algo import keep_good_only, mask_cleanup
 
 class FCPercentiles(StatsFCP):
     send_area_to_processor = False
+    BAD_BITS_MASK = {"cloud": 1 << 6, "cloud_shadow": 1 << 5}
 
     def native_transform(self, xx):
         """
@@ -62,7 +63,7 @@ class FCPercentiles(StatsFCP):
         # not mask against bit 4: terrain high slope
         # Pick out the dry and wet pixels
         valid = (xx["water"] & ~np.uint8(1 << 4)) == 0
-        wet = (xx["water"] & ~np.uint8(1 << 7)) == 128
+        wet = (xx["water"] & ~np.uint8(1 << 4)) == 128
 
         # dilate both 'valid' and 'water'
         for key, val in self.BAD_BITS_MASK.items():
