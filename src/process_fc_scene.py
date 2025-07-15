@@ -3,7 +3,6 @@ import traceback
 import warnings
 
 import boto3
-from datacube.virtual import Measurement
 from dep_tools.aws import object_exists, s3_dump
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import DailyItemPath
