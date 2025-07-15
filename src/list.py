@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
-from dep_tools.grids import landsat_grid
+from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.parsers import bool_parser, datetime_parser
 
@@ -19,7 +19,7 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    dataset_id: Optional[str] = "dep_fc_percentiles",  # placeholder for now
+    dataset_id: Optional[str] = "dep_fc_summary_annual", 
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
 ) -> None:
     this_grid = dep_grid if grid == "dep" else landsat_grid()
