@@ -9,19 +9,24 @@ from typer import Option, run
 from xarray import Dataset, merge
 
 from cloud_logger import CsvLogger, S3Handler
-from dep_tools.loaders import OdcLoader
+from dep_tools.loaders import OdcLoader, StacLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import PystacSearcher
 from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask as Task
+from dep_tools.utils import mask_to_gadm
+from dep_tools.writers import AwsDsCogWriter
 
 from config import BUCKET, OUTPUT_COLLECTION_ROOT
 from grid import grid
 
+NODATA = 255
 
-class MultiCollectionLoader:
-    def __init__(self, **kwargs):
+
+class MultiCollectionLoader(StacLoader):
+    def __init__(self, fill_value=NODATA, **kwargs):
+        self._fill_value = fill_value
         self._kwargs = kwargs
 
     def load(self, items, areas) -> Dataset:
@@ -36,17 +41,15 @@ class MultiCollectionLoader:
                 OdcLoader(**self._kwargs).load(items, areas)
                 for items in collections.values()
             ],
-            fill_value=255,
+            fill_value=self._fill_value,
         )
 
-
-NODATA = 255
 
 from odc.algo import keep_good_only, mask_cleanup
 
 
 class FCPercentiles(StatsFCP):
-    send_area_to_processor = False
+    send_area_to_processor = True
     BAD_BITS_MASK = {"cloud": 1 << 6, "cloud_shadow": 1 << 5}
 
     def native_transform(self, xx):
@@ -61,9 +64,13 @@ class FCPercentiles(StatsFCP):
         """
 
         # not mask against bit 4: terrain high slope
+        # This is why a subclass was needed: without casting the bitmask to
+        # uint8, the inversion (~) created a negative number. It must
+        # compare to the left operand and has trouble with a dask array?
+        mask = xx["water"] & ~np.uint8(1 << 4)
         # Pick out the dry and wet pixels
-        valid = (xx["water"] & ~np.uint8(1 << 4)) == 0
-        wet = (xx["water"] & ~np.uint8(1 << 4)) == 128
+        valid = mask == 0
+        wet = mask == 128
 
         # dilate both 'valid' and 'water'
         for key, val in self.BAD_BITS_MASK.items():
@@ -110,10 +117,14 @@ class FCPercentiles(StatsFCP):
 
         return xx
 
-    def process(self, input_ds: Dataset):
+    def process(self, input_ds: Dataset, area=None):
         transformed = self.native_transform(input_ds)
         fused = transformed.groupby("time").apply(self.fuser)
-        return self.reduce(fused)
+        output = self.reduce(fused)
+        if area is not None:
+            output = mask_to_gadm(output, area)
+
+        return output
 
 
 def main(
@@ -145,10 +156,6 @@ def main(
         dtype="uint8",
         chunks=dict(x=1600, y=1600),
         fail_on_error=False,
-        #        stac_cfg=dict(
-        #            dep_ls_fc=dict(assets=dict(bs={}, pv={},npv={}, ue={})),
-        #            dep_ls_wofl=dict(assets=dict(water={}))
-        #            ),
     )
 
     processor = FCPercentiles(
@@ -159,6 +166,10 @@ def main(
         convert_to_int16=False,
         extra_attrs=dict(dep_version=version),
     )
+
+    # load before write here since many of the derivatives share the same
+    # input data and this will help minimize the number of reads from cloud storage
+    writer = AwsDsCogWriter(itempath=itempath, load_before_write=True)
 
     logger = CsvLogger(
         name=dataset_id,
@@ -177,6 +188,7 @@ def main(
             loader=stacloader,
             processor=processor,
             post_processor=post_processor,
+            writer=writer,
             logger=logger,
             stac_creator=StacCreator(
                 itempath=itempath,

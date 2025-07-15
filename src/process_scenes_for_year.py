@@ -8,7 +8,7 @@ from typer import Option, run
 
 from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
-from dep_tools.grids import landsat_grid
+from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.stac_utils import use_alternate_s3_href
 from dep_tools.utils import search_across_180
