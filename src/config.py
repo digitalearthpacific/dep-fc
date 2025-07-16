@@ -7,4 +7,5 @@ OUTPUT_COLLECTION_ROOT = os.environ.get(
     "OUTPUT_COLLECTION_ROOT", "https://stac.staging.digitalearthpacific.org"
 )
 VERSION = "test"
+NODATA = 255
 

@@ -28,7 +28,7 @@ spec:
     - name: version
       value: "0.0.2" 
     - name: image-tag
-      value: "0.0.2dev17"
+      value: "0.0.2dev20"
   templates:
   - name: loop-map
     retryStrategy:

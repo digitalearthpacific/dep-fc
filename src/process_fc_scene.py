@@ -15,35 +15,9 @@ from pystac import Item
 from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
-class FCProcessor(FractionalCover):
-    def process(self, data):
-        data = (
-            data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
-            .assign_attrs(dict(crs=data.odc.crs))
-            .compute()
-        )
-
-        output = super().compute(data)
-        NODATA = 255
-        # To convert from int8 with nodata = -1 to uint8 with nodata=255
-        # we have to do it this way. I tried to alter the "Measurements"
-        # var in the fc code but there are places where -1 is hardcoded
-        # so it's not respected entirely
-        # Converting to uint8
-        # 1. Makes it easier to load alongside WOfS when calculating percentiles
-        # 2. matches DE Africa data
-        for var in output:
-            output[var] = (
-                output[var]
-                .astype("int16")
-                .where(output[var] > 0, NODATA)
-                .astype("uint8")
-            )
-            output[var].attrs["nodata"] = NODATA
-        return output
-
-
 def process_fc_scene(item: Item, tile_id, version=VERSION):
+    """Process a STAC Item for a single Landsat scene. 
+    """
     itempath = DailyItemPath(
         bucket=BUCKET,
         sensor="ls",
@@ -80,6 +54,7 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
             ).run()
 
         except Exception as e:
+
             log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to s3://{BUCKET}/{log_path}"
@@ -92,4 +67,32 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 key=str(log_path),
                 client=boto3_client,
             )
-            # raise e
+
+class FCProcessor(FractionalCover):
+    def process(self, data):
+        data = (
+            data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
+            .assign_attrs(dict(crs=data.odc.crs))
+            .compute()
+        )
+
+        output = super().compute(data)
+        NODATA = 255
+        # To convert from int8 with nodata = -1 to uint8 with nodata=255
+        # we have to do it this way. I tried to alter the "Measurements"
+        # var in the fc code but there are places where -1 is hardcoded
+        # so it's not respected entirely
+        # Converting to uint8
+        # 1. Makes it easier to load alongside WOfS when calculating percentiles
+        # 2. matches DE Africa data
+        for var in output:
+            output[var] = (
+                output[var]
+                .astype("int16")
+                .where(output[var] > 0, NODATA)
+                .astype("uint8")
+            )
+            output[var].attrs["nodata"] = NODATA
+        return output
+
+

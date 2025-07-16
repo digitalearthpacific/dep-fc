@@ -23,6 +23,12 @@ def main(
     year: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
+    """Search for and process all landsat scenes in the given path & row for a single 
+    year.
+
+    A year as the unit of processing is used since the overhead in spinning up a node
+    to process a single scene is less efficient than iterating over many.
+    """
     id = (path, row)
     cell = landsat_grid().loc[[id]]
 
@@ -31,6 +37,9 @@ def main(
         modifier=use_alternate_s3_href,
     )
 
+    # Logging is set up to have a single log file for each path row and 
+    # each year. Failures at the scene level are logged silently by 
+    # process_fc_scene.
     itempath = S3ItemPath(
         bucket=BUCKET,
         sensor="ls",
@@ -66,7 +75,7 @@ def main(
     def auth_and_process(*args, **kwargs):
         # Read auth seems to expire after 1hr.
         # Re-authenticate before each tile to get around this, as tasks
-        # for all scenes within a year take more than an hour
+        # for all scenes within a year can take more than an hour.
         configure_s3_access(cloud_defaults=True, requester_pays=True)
         process_fc_scene(*args, **kwargs)
 

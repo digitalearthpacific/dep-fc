@@ -4,6 +4,7 @@ from typing_extensions import Annotated
 import boto3
 from distributed import Client
 import numpy as np
+from odc.algo import keep_good_only, mask_cleanup
 from odc.stats.plugins.fc_percentiles import StatsFCP
 from typer import Option, run
 from xarray import Dataset, merge
@@ -18,13 +19,14 @@ from dep_tools.task import AwsStacTask as Task
 from dep_tools.utils import mask_to_gadm
 from dep_tools.writers import AwsDsCogWriter
 
-from config import BUCKET, OUTPUT_COLLECTION_ROOT
+from config import BUCKET, OUTPUT_COLLECTION_ROOT, NODATA
 from grid import grid
-
-NODATA = 255
 
 
 class MultiCollectionLoader(StacLoader):
+    """Allows loading of data from multiple collections into the same dataset.
+    The sets of items in each collection should have the same dimensions (x, y & time),
+    but can have different variables."""
     def __init__(self, fill_value=NODATA, **kwargs):
         self._fill_value = fill_value
         self._kwargs = kwargs
@@ -45,11 +47,14 @@ class MultiCollectionLoader(StacLoader):
         )
 
 
-from odc.algo import keep_good_only, mask_cleanup
 
 
 class FCPercentiles(StatsFCP):
+    """A processor to create annual summaries from individual Fractional Cover layers.
+    """
+    
     send_area_to_processor = True
+    # These are those used for DE Africa
     BAD_BITS_MASK = {"cloud": 1 << 6, "cloud_shadow": 1 << 5}
 
     def native_transform(self, xx):
@@ -126,7 +131,6 @@ class FCPercentiles(StatsFCP):
 
         return output
 
-
 def main(
     row: Annotated[str, Option(parser=int)],
     column: Annotated[str, Option(parser=int)],
@@ -146,6 +150,7 @@ def main(
         time=datetime,
     )
 
+    # fc and wofl are needed for all scenes
     searcher = PystacSearcher(
         catalog=f"https://stac.staging.digitalearthpacific.io",
         datetime=datetime,
