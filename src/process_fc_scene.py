@@ -16,7 +16,7 @@ from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
 def process_fc_scene(item: Item, tile_id, version=VERSION):
-    """Process a STAC Item for a single Landsat scene. 
+    """Create fractional cover for a single Landsat scene.
     """
     itempath = DailyItemPath(
         bucket=BUCKET,
@@ -69,6 +69,7 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
             )
 
 class FCProcessor(FractionalCover):
+    """The Fractional Cover processor."""
     def process(self, data):
         data = (
             data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))

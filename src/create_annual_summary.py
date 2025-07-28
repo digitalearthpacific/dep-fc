@@ -140,7 +140,7 @@ def main(
 ) -> None:
     boto3.setup_default_session()
     id = (column, row)
-    cell = grid.loc[id].geobox.tolist()[0]
+    geobox = grid.loc[id]
 
     itempath = S3ItemPath(
         bucket=BUCKET,
@@ -188,7 +188,7 @@ def main(
         paths = Task(
             itempath=itempath,
             id=id,
-            area=cell,
+            area=geobox,
             searcher=searcher,
             loader=stacloader,
             processor=processor,

@@ -1,11 +1,16 @@
-from dep_tools.grids import grid, gadm
+from dep_tools.grids import grid_gs, gadm
 import pandas as pd
 
-grid_gpdf = grid(intersect_with=gadm(), return_type="GeoDataFrame")
-grid_gs = grid()
-# use for summary products
-grid = pd.DataFrame(
-    index=grid_gpdf.index,
-    data=dict(geobox=[grid_gs.tile_geobox(i) for i in grid_gpdf.index]),
+# Use for summary products.
+grid = pd.DataFrame.from_records(
+    grid_gs(intersect_with=gadm()), columns=["index", "geobox"], index="index"
 )
-
+grid.index = pd.MultiIndex.from_tuples(grid.index)
+grid = grid.geobox
+# `grid` is a pandas Series indexed by a column,row MultiIndex:
+# 107  8     GeoBox((3200, 3200), Affine(30.0, 0.0, 7272000...
+# 108  8     GeoBox((3200, 3200), Affine(30.0, 0.0, 7368000...
+# 123  11    GeoBox((3200, 3200), Affine(30.0, 0.0, 8808000...
+# 125  12    GeoBox((3200, 3200), Affine(30.0, 0.0, 9000000...
+# 130  12    GeoBox((3200, 3200), Affine(30.0, 0.0, 9480000...
+# ...
