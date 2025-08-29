@@ -15,8 +15,14 @@ from pystac import Item
 from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
-def process_fc_scene(item: Item, tile_id, version=VERSION):
+def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
     """Create fractional cover for a single Landsat scene.
+
+    Args:
+        item: A STAC Item for a single landsat scene.
+        tile_id: The landsat tile id as (path, row)
+        version: The output version.
+
     """
     itempath = DailyItemPath(
         bucket=BUCKET,
@@ -54,7 +60,6 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
             ).run()
 
         except Exception as e:
-
             log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to s3://{BUCKET}/{log_path}"
@@ -68,8 +73,10 @@ def process_fc_scene(item: Item, tile_id, version=VERSION):
                 client=boto3_client,
             )
 
+
 class FCProcessor(FractionalCover):
     """The Fractional Cover processor."""
+
     def process(self, data):
         data = (
             data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
@@ -95,5 +102,3 @@ class FCProcessor(FractionalCover):
             )
             output[var].attrs["nodata"] = NODATA
         return output
-
-
