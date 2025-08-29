@@ -1,9 +1,9 @@
-from dep_tools.grids import grid_gs, gadm
+from dep_tools.grids import grid, gadm
 import pandas as pd
 
 # Use for summary products.
 grid = pd.DataFrame.from_records(
-    grid_gs(intersect_with=gadm()), columns=["index", "geobox"], index="index"
+    grid(intersect_with=gadm()), columns=["index", "geobox"], index="index"
 )
 grid.index = pd.MultiIndex.from_tuples(grid.index)
 grid = grid.geobox
