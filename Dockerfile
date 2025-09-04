@@ -7,10 +7,19 @@ ENV FC=gfortran-11
 
 #Install os depencdencies
 RUN echo 'deb http://deb.debian.org/debian/ unstable main contrib non-free' >> /etc/apt/sources.list
-RUN apt-get update && apt-get upgrade -y
-RUN apt install -y -t unstable gdal-bin
-RUN apt-get install -y git libpq-dev libgdal-dev gdal-bin clang gfortran-11 g++ cmake
-RUN apt-get autoclean -y && apt-get autoremove -y && rm -rf /var/lib/{apt,dpkg,cache,log}
+RUN apt-get update && apt-get upgrade -y && apt install -y -t unstable \
+     gdal-bin \
+     git \
+     libpq-dev \
+     libgdal-dev \
+     gdal-bin \
+     clang \
+     gfortran-11 \
+     g++ \
+     cmake \
+     && apt-get autoclean -y \
+     && apt-get autoremove -y \
+     && rm -rf /var/lib/{apt,dpkg,cache,log}
 
 ADD src /app
 ADD pyproject.toml /app/
@@ -18,8 +27,8 @@ ADD setup_fc.sh /app/
 WORKDIR /app
 
 #Install app dependencies
-RUN uv venv
-RUN uv sync -U --compile-bytecode
+RUN uv venv \
+&& uv sync --compile-bytecode
 
 #Compile FC Fortran
 RUN apt remove -y gcc g++
