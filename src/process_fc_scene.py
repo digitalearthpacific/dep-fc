@@ -85,7 +85,6 @@ class FCProcessor(FractionalCover):
         )
 
         output = super().compute(data)
-        NODATA = 255
         # To convert from int8 with nodata = -1 to uint8 with nodata=255
         # we have to do it this way. I tried to alter the "Measurements"
         # var in the fc code but there are places where -1 is hardcoded
@@ -93,11 +92,13 @@ class FCProcessor(FractionalCover):
         # Converting to uint8
         # 1. Makes it easier to load alongside WOfS when calculating percentiles
         # 2. matches DE Africa data
+        OLD_NODATA = -1
+        NODATA = 255
         for var in output:
             output[var] = (
                 output[var]
                 .astype("int16")
-                .where(output[var] > 0, NODATA)
+                .where(output[var] != OLD_NODATA, NODATA)
                 .astype("uint8")
             )
             output[var].attrs["nodata"] = NODATA
