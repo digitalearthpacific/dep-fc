@@ -23,11 +23,16 @@ def main(
     year: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
-    """Search for and process all landsat scenes in the given path & row for a single 
-    year.
+    """Process all landsat scenes for the given tile and year.
 
     A year as the unit of processing is used since the overhead in spinning up a node
     to process a single scene is less efficient than iterating over many.
+
+    Args:
+        path: The Landsat path.
+        row: The Landsat row.
+        year: The year to process.
+        version: The version of the output data.
     """
     id = (path, row)
     cell = landsat_grid().loc[[id]]
@@ -37,8 +42,8 @@ def main(
         modifier=use_alternate_s3_href,
     )
 
-    # Logging is set up to have a single log file for each path row and 
-    # each year. Failures at the scene level are logged silently by 
+    # Logging is set up to have a single log file for each path row and
+    # each year. Failures at the scene level are logged silently by
     # process_fc_scene.
     itempath = S3ItemPath(
         bucket=BUCKET,
