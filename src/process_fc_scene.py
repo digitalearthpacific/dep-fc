@@ -55,6 +55,7 @@ def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
                     collection_url_root=OUTPUT_COLLECTION_ROOT,
                     with_raster=True,
                     with_eo=True,
+                    set_geometry_from_input=True,
                 ),
                 stac_writer=AwsStacWriter(itempath),
             ).run()
