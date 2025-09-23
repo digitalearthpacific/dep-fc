@@ -21,6 +21,7 @@ RUN apt-get update && apt-get upgrade -y && apt install -y -t unstable \
      && apt-get autoremove -y \
      && rm -rf /var/lib/{apt,dpkg,cache,log}
 
+ADD src /app
 ADD pyproject.toml /app/
 WORKDIR /app
 
