@@ -1,3 +1,5 @@
+"""Create fractional cover for a single Landsat scene."""
+
 from pathlib import Path
 import traceback
 import warnings
@@ -11,12 +13,15 @@ from dep_tools.writers import AwsStacWriter
 from dep_tools.stac_utils import StacCreator
 from fc.virtualproduct import FractionalCover
 from pystac import Item
+from xarray import Dataset
 
 from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
 def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
     """Create fractional cover for a single Landsat scene.
+
+    The output data is saved to AWS S3.
 
     Args:
         item: A STAC Item for a single landsat scene.
@@ -55,6 +60,7 @@ def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
                     collection_url_root=OUTPUT_COLLECTION_ROOT,
                     with_raster=True,
                     with_eo=True,
+                    set_geometry_from_input=True,
                 ),
                 stac_writer=AwsStacWriter(itempath),
             ).run()
@@ -77,7 +83,22 @@ def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
 class FCProcessor(FractionalCover):
     """The Fractional Cover processor."""
 
-    def process(self, data):
+    def process(self, data: Dataset) -> Dataset:
+        """Create fractional cover from input landsat data.
+
+        This is a slim wrapper around :func:`FractionalCover().compute`.
+
+        Args:
+            data: An :class:`xarray.Dataset` with Landsat data and variables
+            "nir08", "swir16", and "swir22"
+
+        Returns:
+            A dataset with variables "bs", "pv", "npv", and "ue", representing
+            percentages of bare soil, photosynthetic vegetation,
+            non-photosynthetic vegetation and unmixing error. Output is a
+            unsigned 8 bit integer with a nodata value of 255.
+
+        """
         data = (
             data.rename(dict(nir08="nir", swir16="swir1", swir22="swir2"))
             .assign_attrs(dict(crs=data.odc.crs))

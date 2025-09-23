@@ -1,3 +1,5 @@
+"""Define the grid used for fractional cover."""
+
 from dep_tools.grids import grid, gadm
 import pandas as pd
 

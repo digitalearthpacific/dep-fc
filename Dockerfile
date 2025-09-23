@@ -21,22 +21,12 @@ RUN apt-get update && apt-get upgrade -y && apt install -y -t unstable \
      && apt-get autoremove -y \
      && rm -rf /var/lib/{apt,dpkg,cache,log}
 
-ADD src /app
 ADD pyproject.toml /app/
-ADD setup_fc.sh /app/
 WORKDIR /app
 
-#Install app dependencies
-RUN uv venv \
-&& uv sync --compile-bytecode
+RUN uv sync --compile-bytecode
 
-#Compile FC Fortran
-RUN apt remove -y gcc g++
-ENV PATH="/app/.venv/bin:$PATH"
-RUN sh setup_fc.sh
-
-#Byte Compile FC
+# Final test
 RUN uv run python -c "from fc import fractional_cover"
-#CMD ["uv", "run", "run.py"]
 
 

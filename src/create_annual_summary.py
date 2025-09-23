@@ -1,3 +1,5 @@
+"""Create annual summaries from scene-level fractional cover."""
+
 from collections import defaultdict
 from typing_extensions import Annotated
 
@@ -5,6 +7,7 @@ import boto3
 from distributed import Client
 import numpy as np
 from odc.algo import keep_good_only, mask_cleanup
+from odc.geo import GeoBox
 from odc.stats.plugins.fc_percentiles import StatsFCP
 from typer import Option, run
 from xarray import Dataset, merge
@@ -27,6 +30,7 @@ class MultiCollectionLoader(StacLoader):
     """Allows loading of data from multiple collections into the same dataset.
     The sets of items in each collection should have the same dimensions (x, y & time),
     but can have different variables."""
+
     def __init__(self, fill_value=NODATA, **kwargs):
         self._fill_value = fill_value
         self._kwargs = kwargs
@@ -47,25 +51,29 @@ class MultiCollectionLoader(StacLoader):
         )
 
 
-
-
 class FCPercentiles(StatsFCP):
     """A processor to create annual summaries from individual Fractional Cover layers.
+
+    This is a wrapper around :class:`odc.stats.plugins.fc_percentiles.StatsFCP`.
+
     """
-    
+
     send_area_to_processor = True
     # These are those used for DE Africa
     BAD_BITS_MASK = {"cloud": 1 << 6, "cloud_shadow": 1 << 5}
 
     def native_transform(self, xx):
-        """
-        Loads data in its native projection. It performs the following:
+        """Transform data in preparation for summarisation.
 
-        1. Load all fc and WOfS bands
-        2. Set the high terrain slope flag to 0
-        3. Set all pixels that are not clear and dry to NODATA
-        4. Calculate the clear wet pixels
-        5. Drop the WOfS band
+        Specifically, the following is performed:
+        1. Set the high terrain slope flag to 0
+        2. Set all pixels that are not clear and dry to NODATA
+        3. Calculate the clear wet pixels
+        4. Drop the WOfS band
+
+        Args:
+            xx: combined WOFL and fractional cover data, with variables "water",
+            "bs", "pv", "npv", and "ue".
         """
 
         # not mask against bit 4: terrain high slope
@@ -122,7 +130,18 @@ class FCPercentiles(StatsFCP):
 
         return xx
 
-    def process(self, input_ds: Dataset, area=None):
+    def process(self, input_ds: Dataset, area: GeoBox | None = None):
+        """Create annual summaries for fractional cover.
+
+        Args:
+            input_ds: An :class:`xarray.Dataset` with variables "bs",
+                "pv", "npv" and "ue" (fractional cover variables) and
+                "water" (wofl data).
+            area: The footprint of `input_ds`. If this is set, then the
+                data is masked to GADM using :func:`dep_tools.utils.mask_to_gadm`.
+        Returns:
+            Annual summaries of fractional cover.
+        """
         transformed = self.native_transform(input_ds)
         fused = transformed.groupby("time").apply(self.fuser)
         output = self.reduce(fused)
@@ -130,6 +149,7 @@ class FCPercentiles(StatsFCP):
             output = mask_to_gadm(output, area)
 
         return output
+
 
 def main(
     row: Annotated[str, Option(parser=int)],
