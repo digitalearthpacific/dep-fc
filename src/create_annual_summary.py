@@ -148,6 +148,13 @@ class FCPercentiles(StatsFCP):
         if area is not None:
             output = mask_to_gadm(output, area)
 
+        # Ensure there's no stray nans, then convert to uint8
+        output = output.where(~output.isnull(), NODATA).astype("uint8")
+
+        for var in output:
+            output[var].rio.write_nodata(NODATA, inplace=True)
+            output[var].attrs["nodata"] = NODATA
+
         return output
 
 
