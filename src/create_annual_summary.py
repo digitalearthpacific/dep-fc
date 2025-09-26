@@ -22,7 +22,7 @@ from dep_tools.task import AwsStacTask as Task
 from dep_tools.utils import mask_to_gadm
 from dep_tools.writers import AwsDsCogWriter
 
-from config import BUCKET, OUTPUT_COLLECTION_ROOT, NODATA
+from config import BUCKET, OUTPUT_COLLECTION_ROOT, NODATA, VERSION
 from grid import grid
 
 
@@ -162,7 +162,7 @@ def main(
     row: Annotated[str, Option(parser=int)],
     column: Annotated[str, Option(parser=int)],
     datetime: Annotated[str, Option()],
-    version: Annotated[str, Option()],
+    version: Annotated[str, Option()] = VERSION,
     dataset_id: str = "fc_summary_annual",
 ) -> None:
     boto3.setup_default_session()
@@ -192,6 +192,7 @@ def main(
 
     processor = FCPercentiles(
         cloud_filters=dict(cloud=[("dilation", 6)], cloud_shadow=[("dilation", 6)]),
+        count_valid=True,
     )
 
     post_processor = XrPostProcessor(
