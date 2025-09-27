@@ -19,8 +19,9 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    dataset_id: Optional[str] = "dep_fc_summary_annual", 
+    dataset_id: Optional[str] = "dep_fc_summary_annual",
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
+    filter_using_log: Annotated[str, typer.Option(parser=bool_parser)] = "True",
 ) -> None:
     this_grid = dep_grid if grid == "dep" else landsat_grid()
     first_name = dict(dep="column", ls="path")
@@ -44,7 +45,11 @@ def main(
             cloud_handler=S3Handler,
         )
 
-        grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
+        grid_subset = (
+            filter_by_log(this_grid, logger.parse_log(), retry_errors)
+            if filter_using_log
+            else this_grid
+        )
 
         these_params = [
             {
