@@ -179,7 +179,7 @@ def main(
 
     # fc and wofl are needed for all scenes
     searcher = PystacSearcher(
-        catalog=f"https://stac.staging.digitalearthpacific.io",
+        catalog=f"https://stac.digitalearthpacific.org",
         datetime=datetime,
         collections=["dep_ls_fc", "dep_ls_wofl"],
     )
