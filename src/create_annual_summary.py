@@ -13,8 +13,10 @@ from typer import Option, run
 from xarray import Dataset, merge
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_tools.exceptions import EmptyCollectionError
 from dep_tools.loaders import OdcLoader, StacLoader
 from dep_tools.namers import S3ItemPath
+from dep_tools.parsers import bool_parser
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import PystacSearcher
 from dep_tools.stac_utils import StacCreator
@@ -40,6 +42,11 @@ class MultiCollectionLoader(StacLoader):
         collections = defaultdict(list)
         for item in items:
             collections[item.collection_id].append(item)
+
+        if not "dep_ls_fc" in collections:
+            raise EmptyCollectionError("No fractional cover items found")
+        elif not "dep_ls_wofl" in collections:
+            raise EmptyCollectionError("No WOFL items found")
 
         # load items in each and merge
         return merge(
@@ -164,6 +171,7 @@ def main(
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
     dataset_id: str = "fc_summary_annual",
+    raise_empty_collection_error: Annotated[str, Option(parser=bool_parser)] = "False",
 ) -> None:
     boto3.setup_default_session()
     id = (column, row)
@@ -230,11 +238,15 @@ def main(
                 with_eo=True,
             ),
         ).run()
+    except EmptyCollectionError as e:
+        logger.error([id, "empty collection error", e])
+        if raise_empty_collection_error:
+            raise e
     except Exception as e:
         logger.error([id, "error", e])
         raise e
-
-    logger.info([id, "complete", paths])
+    else:
+        logger.info([id, "complete", paths])
 
 
 if __name__ == "__main__":
