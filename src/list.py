@@ -46,7 +46,12 @@ def main(
         )
 
         grid_subset = (
-            filter_by_log(this_grid, logger.parse_log(), retry_errors)
+            filter_by_log(
+                this_grid,
+                logger.parse_log(),
+                retry_errors,
+                non_error_statuses=["complete", "empty collection error"],
+            )
             if filter_using_log
             else this_grid
         )
