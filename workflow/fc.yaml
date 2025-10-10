@@ -4,23 +4,24 @@ metadata:
   namespace: argo
 spec:
   entrypoint: loop-map
-  serviceAccountName: public-bucket-writer
+  serviceAccountName: open-data-bucket-writer
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
   parallelism: 500
+  activeDeadlineSeconds: 36000
   nodeSelector:
     karpenter.sh/capacity-type: "spot"
   hostAliases:
-    - ip: "13.227.74.113"
+    - ip: "18.155.192.8"
       hostnames:
         - "landsatlook.usgs.gov"
   arguments:
     parameters:
     - name: version
-      value: "0.0.2" 
+      value: "0.1.0" 
     - name: image-tag
-      value: "0.0.2dev15"
+      value: "0.1.0rc4"
   templates:
   - name: loop-map
     retryStrategy:
@@ -34,15 +35,15 @@ spec:
             parameters:
               - name: limit
                 value: "9999"
-              - name: datetime
-                value: "2024"
+              - name: years
+                value: "2023"
               - name: grid
                 value: "ls"
+              - name: dataset-id
+                value: "fc"
               - name: version
                 value: "{{ workflow.parameters.version }}"
-              - name: datasetid
-                value: "fc"
-              - name: overwrite-existing-log
+              - name: filter-using-log
                 value: "False"
         - name: process-id
           depends: generate-ids.Succeeded
@@ -62,10 +63,11 @@ spec:
     inputs:
       parameters:
       - name: limit
-      - name: datetime
+      - name: years
       - name: version
-      - name: datasetid
-      - name: overwrite-existing-log
+      - name: grid
+      - name: dataset-id
+      - name: filter-using-log
     container:
       image: "ghcr.io/digitalearthpacific/dep-fc:{{ workflow.parameters.image-tag }}"
       imagePullPolicy: IfNotPresent
@@ -76,18 +78,18 @@ spec:
       command: [ "uv", "run" ]
       args:
         - list.py
-        - --years
-        - "{{ inputs.parameters.datetime }}"
-        - --version
-        - "{{ inputs.parameters.version }}"
         - --limit
         - "{{ inputs.parameters.limit }}"
+        - --years
+        - "{{ inputs.parameters.years }}"
+        - --version
+        - "{{ inputs.parameters.version }}"
         - --grid
-        - "ls"
+        - "{{ inputs.parameters.grid }}"
         - --dataset-id
-        - "{{ inputs.parameters.datasetid }}"
-        - --overwrite-existing-log
-        - "{{ inputs.parameters.overwrite-existing-log }}"
+        - "{{ inputs.parameters.dataset-id }}"
+        - --filter-using-log
+        - "{{ inputs.parameters.filter-using-log }}"
   - name: process-tile
     inputs:
       parameters:
