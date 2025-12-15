@@ -1,39 +1,42 @@
 kind: Workflow
 metadata:
-  generateName: fc-summary-annual-
+  generateName: fc-summary-annual-84-24-
   namespace: argo
 spec:
   entrypoint: loop-map
-  serviceAccountName: public-bucket-writer
+  serviceAccountName: open-data-bucket-writer
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
-  parallelism: 600
+  parallelism: 300 
   podMetadata:
     labels:
-      app: wofs
+      app: fc
     annotations:
       karpenter.sh/do-not-disrupt: "true"
   nodeSelector:
     karpenter.sh/capacity-type: "spot"
   hostAliases:
-    - ip: "52.218.252.81"
+    - ip: "52.94.181.70"
+      hostnames:
+        - "sts.us-west-2.amazonaws.com"
+    - ip: "52.92.251.106"
       hostnames:
         - "dep-public-staging.s3.us-west-2.amazonaws.com"
-    - ip: "52.92.239.146"
+    - ip: "52.92.160.242"
       hostnames:
         - "dep-public-data.s3.us-west-2.amazonaws.com"
   arguments:
     parameters:
     - name: version
-      value: "0.0.2" 
+      value: "0.1.1" 
     - name: image-tag
-      value: "0.0.2dev20"
+      value: "0.1.0rc7"
   templates:
   - name: loop-map
     retryStrategy:
-      limit: "4"
-      retryPolicy: "Always"
+      limit: "2"
+      retryPolicy: "OnError"
     dag:
       tasks:
         - name: generate-ids
@@ -43,7 +46,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2024"
+                value: "1984_2024"
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: datasetid
@@ -63,6 +66,8 @@ spec:
               value: "{{item.year}}"
             - name: version
               value: "{{ workflow.parameters.version }}"
+            - name: raise_empty_collection_error
+              value: "False"
           withParam: "{{ tasks.generate-ids.outputs.result }}"
   - name: generate
     inputs:
@@ -101,6 +106,7 @@ spec:
       - name: row
       - name: datetime
       - name: version
+      - name: raise_empty_collection_error
     container:
       image: "ghcr.io/digitalearthpacific/dep-fc:{{ workflow.parameters.image-tag }}"
       imagePullPolicy: IfNotPresent
@@ -122,3 +128,5 @@ spec:
         - "{{ inputs.parameters.datetime }}"
         - --version
         - "{{ inputs.parameters.version }}"
+        - --raise-empty-collection-error
+        - "{{ inputs.parameters.raise_empty_collection_error }}"

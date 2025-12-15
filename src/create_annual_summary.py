@@ -13,8 +13,10 @@ from typer import Option, run
 from xarray import Dataset, merge
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_tools.exceptions import EmptyCollectionError
 from dep_tools.loaders import OdcLoader, StacLoader
 from dep_tools.namers import S3ItemPath
+from dep_tools.parsers import bool_parser
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import PystacSearcher
 from dep_tools.stac_utils import StacCreator
@@ -22,7 +24,7 @@ from dep_tools.task import AwsStacTask as Task
 from dep_tools.utils import mask_to_gadm
 from dep_tools.writers import AwsDsCogWriter
 
-from config import BUCKET, OUTPUT_COLLECTION_ROOT, NODATA
+from config import BUCKET, OUTPUT_COLLECTION_ROOT, NODATA, VERSION
 from grid import grid
 
 
@@ -40,6 +42,11 @@ class MultiCollectionLoader(StacLoader):
         collections = defaultdict(list)
         for item in items:
             collections[item.collection_id].append(item)
+
+        if not "dep_ls_fc" in collections:
+            raise EmptyCollectionError("No fractional cover items found")
+        elif not "dep_ls_wofl" in collections:
+            raise EmptyCollectionError("No WOFL items found")
 
         # load items in each and merge
         return merge(
@@ -162,8 +169,9 @@ def main(
     row: Annotated[str, Option(parser=int)],
     column: Annotated[str, Option(parser=int)],
     datetime: Annotated[str, Option()],
-    version: Annotated[str, Option()],
+    version: Annotated[str, Option()] = VERSION,
     dataset_id: str = "fc_summary_annual",
+    raise_empty_collection_error: Annotated[str, Option(parser=bool_parser)] = "False",
 ) -> None:
     boto3.setup_default_session()
     id = (column, row)
@@ -179,7 +187,7 @@ def main(
 
     # fc and wofl are needed for all scenes
     searcher = PystacSearcher(
-        catalog=f"https://stac.staging.digitalearthpacific.io",
+        catalog=f"https://stac.digitalearthpacific.org",
         datetime=datetime,
         collections=["dep_ls_fc", "dep_ls_wofl"],
     )
@@ -192,6 +200,7 @@ def main(
 
     processor = FCPercentiles(
         cloud_filters=dict(cloud=[("dilation", 6)], cloud_shadow=[("dilation", 6)]),
+        count_valid=True,
     )
 
     post_processor = XrPostProcessor(
@@ -229,11 +238,15 @@ def main(
                 with_eo=True,
             ),
         ).run()
+    except EmptyCollectionError as e:
+        logger.error([id, "empty collection error", e])
+        if raise_empty_collection_error:
+            raise e
     except Exception as e:
         logger.error([id, "error", e])
         raise e
-
-    logger.info([id, "complete", paths])
+    else:
+        logger.info([id, "complete", paths])
 
 
 if __name__ == "__main__":
