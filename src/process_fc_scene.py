@@ -18,7 +18,7 @@ from xarray import Dataset
 from config import BUCKET, DATASET_ID, OUTPUT_COLLECTION_ROOT, VERSION
 
 
-def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
+def process_fc_scene(item: Item, version=VERSION):
     """Create fractional cover for a single Landsat scene.
 
     The output data is saved to AWS S3.
@@ -35,6 +35,10 @@ def process_fc_scene(item: Item, tile_id: tuple[int, ...], version=VERSION):
         dataset_id=DATASET_ID,
         version=version,
         time=item.get_datetime(),
+    )
+    tile_id = (
+        item.properties["landsat:wrs_path"],
+        item.properties["landsat:wrs_row"],
     )
     if not object_exists(bucket=BUCKET, key=itempath.stac_path(tile_id)):
         try:
