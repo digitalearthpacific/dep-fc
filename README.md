@@ -33,4 +33,4 @@ The cron-based workflow to create fractional cover for recent scenes is in the
 
 ## Installation
 
-Please refer to the [Dockerfile](Dockerfile] for prerequisites for installation.
+Please refer to the [Dockerfile](Dockerfile) for prerequisites for installation.
